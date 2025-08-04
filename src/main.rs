@@ -25,8 +25,8 @@ impl LineParsing {
         ]);
 
         let location = HashMap::from([
-            ("local", "lcl"),
-            ("argument", "arg"),
+            ("local", "LCL"),
+            ("argument", "ARG"),
             ("this", "THIS"),
             ("that", "THAT"),
             ("static", "STATIC"),
@@ -50,6 +50,32 @@ impl LineParsing {
         LineParsing{ ctype: ctype, arg1: arg1, arg2: arg2 }
     }
 
+    fn push(&self) -> String {
+
+        match &self.arg1[..] {
+            "STATIC" => return self.push_constant(),
+            _ => return "".to_string(),
+        }
+
+    }
+
+    fn pop(&self) -> String {
+
+        match &self.arg1[..] {
+            "STATIC" => panic!("Can't pop static items"),
+            "LCL" | "ARG" | "THIS" | "THAT" => return self.pop_offset(),
+            _ => return "".to_string(),
+        }
+    }
+
+    fn add(&self) -> String {
+        return "".to_string()
+    }
+
+    fn sub(&self) -> String {
+        return "".to_string()
+    }
+
     fn push_constant(&self) -> String {
         println!("{:?}", self);
        format!("@{:?}
@@ -61,28 +87,20 @@ M=D
 M=M+1", self.arg2.unwrap()).to_string()
     }
 
-    fn push(&self) -> String {
-        println!("{:?}", self);
-        let mut res = "".to_string();
-
-        match &self.arg1[..] {
-            "STATIC" => res = self.push_constant(),
-            _ => return "".to_string(),
-        }
-
-        res
+    fn pop_offset(&self) -> String {
+        format!("@{0}
+D=A
+@{1}
+A=D+M
+D=M
+@SP
+M=M-1
+A=M
+M=D", self.arg2.unwrap(), self.arg1).to_string()
     }
 
-    fn pop(&self) -> String {
-        return "".to_string()
-    }
-
-    fn add(&self) -> String {
-        return "".to_string()
-    }
-
-    fn sub(&self) -> String {
-        return "".to_string()
+    fn push_offset(&self) -> String {
+        "".to_string()
     }
 
 }
@@ -121,7 +139,7 @@ mod tests {
         let tmp = Vec::from(["pop", "local", "1"]);
         let c = LineParsing::new(tmp);
         let e = LineParsing { ctype: CommandType::Pop,
-        arg1: "lcl".to_string(),
+        arg1: "LCL".to_string(),
         arg2: Some(1)};
         assert_eq!(c, e);
     }
@@ -149,7 +167,22 @@ A=M
 M=D
 @SP
 M=M+1".to_string();
+        assert_eq!(c, e);
+    }
 
+    #[test]
+    fn line_test1() {
+        let tmp = Vec::from(["pop", "local", "1"]);
+        let c = LineParsing::new(tmp).pop();
+        let e = "@1
+D=A
+@LCL
+A=D+M
+D=M
+@SP
+M=M-1
+A=M
+M=D".to_string();
         assert_eq!(c, e);
     }
 
