@@ -54,6 +54,7 @@ impl LineParsing {
 
         match &self.arg1[..] {
             "STATIC" => return self.push_constant(),
+            "LCL" | "ARG" | "THIS" | "THAT" => return self.push_offset(),
             _ => return "".to_string(),
         }
 
@@ -69,11 +70,21 @@ impl LineParsing {
     }
 
     fn add(&self) -> String {
-        return "".to_string()
+        "@SP
+M=M-1
+A=M
+D=M
+A=A-1
+M=D+M".to_string()
     }
 
     fn sub(&self) -> String {
-        return "".to_string()
+        "@SP
+M=M-1
+A=M
+D=M
+A=A-1
+M=M-D".to_string()
     }
 
     fn push_constant(&self) -> String {
@@ -100,7 +111,15 @@ M=D", self.arg2.unwrap(), self.arg1).to_string()
     }
 
     fn push_offset(&self) -> String {
-        "".to_string()
+        format!("@{0}
+D=A
+@{1}
+A=D+M
+D=M
+@SP
+M=M+1
+A=M
+M=D", self.arg2.unwrap(), self.arg1).to_string()
     }
 
 }
