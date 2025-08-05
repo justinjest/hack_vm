@@ -35,7 +35,7 @@ impl LineParsing {
             ("R13", "R13"),
             ("R14", "R14"),
             ("R15", "R15"),
-            ("constant", "CONSTANT"),
+            ("constant", "STATIC"),
             ("temp", "TEMP"),
         ]);
 
@@ -72,7 +72,7 @@ impl LineParsing {
         match &self.arg1[..] {
             "STATIC" => return self.push_constant(),
             "LCL" | "ARG" | "THIS" | "THAT" => return self.push_offset(),
-            _ => return "".to_string(),
+            _ => panic!("Called a push command that is not implemented"),
         }
     }
 
@@ -80,7 +80,7 @@ impl LineParsing {
         match &self.arg1[..] {
             "STATIC" => panic!("Can't pop static items"),
             "LCL" | "ARG" | "THIS" | "THAT" => return self.pop_offset(),
-            _ => return "".to_string(),
+            _ => panic!("Called a pop command that is not implemented"),
         }
     }
 
@@ -137,6 +137,8 @@ A=M
 M=D", self.arg2.unwrap(), self.arg1).to_string()
     }
 
+// TODO TMP parsing
+
 }
 
 fn split_line(line: &str) -> Vec<&str> {
@@ -168,7 +170,16 @@ pub fn clean_whitespace(line: &str) -> Option<&str> {
 
 
 fn main() {
-    println!("Hello, world!");
+    let file = open_line_breaks("./resources/BasicTest.vm");
+    let lines = file.split("\n");
+    let mut res = Vec::new();
+    for line in lines {
+        let tmp = clean_whitespace(line);
+        if tmp.is_some() {
+            res.push(LineParsing::new(split_line(line)).parse());
+        }
+    }
+    println!("{:?}", res);
 }
 
 
@@ -241,5 +252,22 @@ A=M
 M=D".to_string();
         assert_eq!(c, e);
     }
+
+    #[test]
+    fn integration_tesst0() {
+        let line = "pop local 1";
+        let c = LineParsing::new(split_line(line)).parse();
+        let e = "@1
+D=A
+@LCL
+A=D+M
+D=M
+@SP
+M=M-1
+A=M
+M=D".to_string();
+        assert_eq!(c, e);
+    }
+
 
 }
