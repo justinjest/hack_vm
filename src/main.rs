@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::fs;
+use std::io::{Result, Write};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum CommandType {
@@ -51,17 +53,14 @@ impl LineParsing {
     }
 
     fn push(&self) -> String {
-
         match &self.arg1[..] {
             "STATIC" => return self.push_constant(),
             "LCL" | "ARG" | "THIS" | "THAT" => return self.push_offset(),
             _ => return "".to_string(),
         }
-
     }
 
     fn pop(&self) -> String {
-
         match &self.arg1[..] {
             "STATIC" => panic!("Can't pop static items"),
             "LCL" | "ARG" | "THIS" | "THAT" => return self.pop_offset(),
@@ -127,6 +126,28 @@ M=D", self.arg2.unwrap(), self.arg1).to_string()
 fn split_line(line: &str) -> Vec<&str> {
     line.split(" ")
         .collect()
+}
+
+pub fn open_line_breaks(filename: &str) -> String {
+    let contents = fs::read_to_string(filename)
+        .expect("Should have been able to read the file");
+    return contents;
+}
+
+pub fn write_file (filename: &str, contents: &str) -> Result<()> {
+    let mut file = fs::File::create(format!("{}", filename.to_string()))?;
+    let _ = file.write_all(contents.as_bytes());
+    Ok(())
+}
+
+pub fn clean_whitespace(line: &str) -> Option<&str> {
+    // We can split the line at // and select the first section to remove comments
+    let vals = line.split("//").collect::<Vec<&str>>();
+    let tmp = vals[0].trim();
+    if tmp != "" {
+        return Some(tmp)
+    }
+    return None
 }
 
 
