@@ -52,6 +52,22 @@ impl LineParsing {
         LineParsing{ ctype: ctype, arg1: arg1, arg2: arg2 }
     }
 
+    fn parse(&self) -> String {
+        match self.ctype {
+            CommandType::Pop => return self.pop(),
+            CommandType::Push => return self.push(),
+            CommandType::Arithmetic => return self.arithmitic(),
+        }
+    }
+
+    fn arithmitic(&self) -> String {
+        match self.arg1.as_str() {
+            "add" => return self.add(),
+            "sub" => return self.sub(),
+            _ => return "".to_string(),
+        }
+    }
+
     fn push(&self) -> String {
         match &self.arg1[..] {
             "STATIC" => return self.push_constant(),
