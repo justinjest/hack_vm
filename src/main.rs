@@ -117,139 +117,90 @@ M=M-D".to_string()
 
     fn eq(&self) -> String {
         format!("@SP
-M=M-1
-A=M
+AM=M-1
 D=M
 A=A-1
-D=D-M
+D=M-D
 @true{0}
 D;JEQ
 @SP
-A=M
+A=M-1
 M=0
 @end{0}
 D;JMP
 (true{0})
-@0
-A=M
-M=1
-(end{0})
-", self.line_num)
+@SP
+A=M-1
+M=-1
+(end{0})", self.line_num)
     }
 
     fn lt(&self) -> String {
         format!("@SP
-M=M-1
-A=M
+AM=M-1
 D=M
 A=A-1
-D=D-M
+D=M-D
 @true{0}
 D;JLT
 @SP
-A=M
+A=M-1
 M=0
 @end{0}
 D;JMP
 (true{0})
-@0
-A=M
-M=1
-(end{0})
-", self.line_num)
+@SP
+A=M-1
+M=-1
+(end{0})", self.line_num)
     }
 
     fn gt(&self) -> String {
 format!("@SP
-M=M-1
-A=M
+AM=M-1
 D=M
 A=A-1
-D=D-M
+D=M-D
 @true{0}
 D;JGT
 @SP
-A=M
+A=M-1
 M=0
 @end{0}
 D;JMP
 (true{0})
-@0
-A=M
-M=1
-(end{0})
-", self.line_num)
+@SP
+A=M-1
+M=-1
+(end{0})", self.line_num)
     }
 
     fn neg(&self) -> String {
 "@SP
-D=A
 A=M-1
-M=M-D".to_string()
+M=-M".to_string()
     }
 
     fn and(&self) -> String {
-        format!("@SP
-M=M-1
-A=M+1
-D=M-1
-@false{0}
-D;JNE
-@SP
-A=M
-D=M-1
-@false{0}
-D;JNE
-@SP
-A=M-1
-D=1
-@end
-D;JMP
-(false{0})
-@SP
-A=M-1
-M=0
-(end{0})", self.line_num)
+        "@SP
+AM=M-1
+D=M
+A=A-1
+M=D&M".to_string()
     }
 
     fn or(&self) -> String {
-        format!("@SP
-M=M-1
-A=M
-D=M-1
-@true{0}
-D;JEQ
-@SP
-A=M-1
-D=M-1
-@true{0}
-D;JEQ
-@SP
-A=M-1
+        "@SP
+AM=M-1
 D=M
-@end{0}
-D;JMP
-(true{0})
-@SP
-A=M-1
-M=1
-(end{0})", self.line_num)
+A=A-1
+M=D|M".to_string()
     }
 
     fn not(&self) -> String {
-        format!("@SP
+        "@SP
 A=M-1
-D=M
-@true{0}
-D;JEQ
-M=0
-@end{0}
-D;JMP
-(true{0})
-@SP
-A=M-1
-M=1
-(end{0})", self.line_num)
+M=!M".to_string()
     }
 
     fn push_constant(&self) -> String {
