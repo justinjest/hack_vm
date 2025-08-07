@@ -205,7 +205,9 @@ fn main() {
             res.push(LineParsing::new(split_line(line)).parse());
         }
     }
-    println!("{:?}", res);
+    let output = res.join("\n");
+    println!("{:?}", output);
+    write_file("./resources/BasicTest.asm", &output)?;
 }
 
 
