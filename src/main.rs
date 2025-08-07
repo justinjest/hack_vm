@@ -43,35 +43,36 @@ impl LineParsing {
         let mut arg1 = line[0].to_string();
         let mut arg2: Option<i32> = None;
         if line.len() >= 3 {
-            print!("Original: {}\n", line[1]);
-            println!("New: {}\n", location[line[1]]);
+            println!("Original: {}", line[1]);
+            println!("New: {}", location[line[1]]);
             arg1 = location[line[1]].to_string();
             arg2 = Some(line[2].parse()
                         .expect("Unable to parse num {line[2]}\n"));
         }
-        LineParsing{ ctype: ctype, arg1: arg1, arg2: arg2 }
+        LineParsing{ ctype, arg1, arg2 }
     }
 
     fn parse(&self) -> String {
         match self.ctype {
-            CommandType::Pop => return self.pop(),
-            CommandType::Push => return self.push(),
-            CommandType::Arithmetic => return self.arithmitic(),
+            CommandType::Pop => self.pop(),
+            CommandType::Push => self.push(),
+            CommandType::Arithmetic => self.arithmitic(),
         }
     }
 
     fn arithmitic(&self) -> String {
         match self.arg1.as_str() {
-            "add" => return self.add(),
-            "sub" => return self.sub(),
-            _ => return "".to_string(),
+            "add" => self.add(),
+            "sub" => self.sub(),
+            _ => "".to_string(),
         }
     }
 
     fn push(&self) -> String {
         match &self.arg1[..] {
-            "STATIC" => return self.push_constant(),
-            "LCL" | "ARG" | "THIS" | "THAT" => return self.push_offset(),
+            "STATIC" => self.push_constant(),
+            "LCL" | "ARG" | "THIS" | "THAT" => self.push_offset(),
+            "TEMP" => self.push_temp(),
             _ => panic!("Called a push command that is not implemented"),
         }
     }
@@ -79,7 +80,8 @@ impl LineParsing {
     fn pop(&self) -> String {
         match &self.arg1[..] {
             "STATIC" => panic!("Can't pop static items"),
-            "LCL" | "ARG" | "THIS" | "THAT" => return self.pop_offset(),
+            "LCL" | "ARG" | "THIS" | "THAT" => self.pop_offset(),
+            "TEMP" => self.pop_temp(),
             _ => panic!("Called a pop command that is not implemented"),
         }
     }
@@ -110,7 +112,7 @@ D=A
 A=M
 M=D
 @SP
-M=M+1", self.arg2.unwrap()).to_string()
+M=M+1", self.arg2.unwrap())
     }
 
     fn pop_offset(&self) -> String {
@@ -122,7 +124,19 @@ D=M
 @SP
 M=M-1
 A=M
-M=D", self.arg2.unwrap(), self.arg1).to_string()
+M=D", self.arg2.unwrap(), self.arg1)
+    }
+
+    fn pop_temp(&self) -> String {
+        format!("@{0}
+D=A
+@{1}
+A=D+M
+D=M
+@SP
+M=M-1
+A=M
+M=D", self.arg2.unwrap() + 5, self.arg1)
     }
 
     fn push_offset(&self) -> String {
@@ -134,7 +148,19 @@ D=M
 @SP
 M=M+1
 A=M
-M=D", self.arg2.unwrap(), self.arg1).to_string()
+M=D", self.arg2.unwrap(), self.arg1)
+    }
+
+    fn push_temp(&self) -> String {
+        format!("@{}
+D=A
+@{1}
+A=D+M
+D=M
+@SP
+M=M+1
+A=M
+M=D", self.arg2.unwrap() + 5, self.arg1)
     }
 
 // TODO TMP parsing
@@ -147,13 +173,13 @@ fn split_line(line: &str) -> Vec<&str> {
 }
 
 pub fn open_line_breaks(filename: &str) -> String {
-    let contents = fs::read_to_string(filename)
-        .expect("Should have been able to read the file");
-    return contents;
+    fs::read_to_string(filename)
+        .expect("Should have been able to read the file")
+
 }
 
 pub fn write_file (filename: &str, contents: &str) -> Result<()> {
-    let mut file = fs::File::create(format!("{}", filename.to_string()))?;
+    let mut file = fs::File::create(filename)?;
     let _ = file.write_all(contents.as_bytes());
     Ok(())
 }
@@ -162,10 +188,10 @@ pub fn clean_whitespace(line: &str) -> Option<&str> {
     // We can split the line at // and select the first section to remove comments
     let vals = line.split("//").collect::<Vec<&str>>();
     let tmp = vals[0].trim();
-    if tmp != "" {
+    if !tmp.is_empty() {
         return Some(tmp)
     }
-    return None
+    None
 }
 
 
