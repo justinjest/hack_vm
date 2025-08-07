@@ -16,10 +16,11 @@ struct LineParsing {
     arg1: String, // This is either the arithmetic type, or the location
     arg2: Option<i32>, // This will be the target of offsets or the num
     line_num: i32,
+    file_name: String,
 }
 
 impl LineParsing {
-    fn new(line: Vec<&str>, line_num: i32) -> Self {
+    fn new(line: Vec<&str>, line_num: i32, file_name: String) -> Self {
         let mapping = HashMap::from([
             ("push", CommandType::Push),
             ("pop",  CommandType::Pop),
@@ -45,6 +46,7 @@ impl LineParsing {
             ("R15", "R15"),
             ("constant", "CONST"),
             ("temp", "TEMP"),
+            ("pointer", "PTR"),
         ]);
 
         let ctype = mapping[line[0]];
@@ -55,7 +57,7 @@ impl LineParsing {
             arg2 = Some(line[2].parse()
                         .expect("Unable to parse num {line[2]}\n"));
         }
-        LineParsing{ ctype, arg1, arg2, line_num }
+        LineParsing{ ctype, arg1, arg2, line_num, file_name }
     }
 
     fn parse(&self) -> String {
@@ -86,6 +88,7 @@ impl LineParsing {
             "CONST" => self.push_constant(),
             "LCL" | "ARG" | "THIS" | "THAT" => self.push_offset(),
             "TEMP" => self.push_temp(),
+            "PTR" => self.push_pointer(),
             _ => panic!("Called a push command that is not implemented"),
         }
     }
@@ -95,6 +98,7 @@ impl LineParsing {
             "CONST" => panic!("Can't pop static items"),
             "LCL" | "ARG" | "THIS" | "THAT" => self.pop_offset(),
             "TEMP" => self.pop_temp(),
+            "PTR" => self.pop_pointer(),
             _ => panic!("Called a pop command that is not implemented"),
         }
     }
@@ -213,6 +217,52 @@ M=D
 M=M+1", self.arg2.unwrap())
     }
 
+    fn push_static(&self) -> String {
+        format!("@{0}.{1}
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1", self.file_name, self.arg2.unwrap())
+    }
+
+    fn push_pointer(&self) -> String {
+       let segment = match self.arg2.unwrap() {
+           0 => "THIS",
+           1 => "THAT",
+           _ => panic!("Invalid pointer")
+       };
+        format!("@{0}
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1", segment)
+    }
+
+    fn pop_static(&self) -> String {
+        format!("@SP
+AM=M-1
+D=M
+@{0}.{1}
+M=D", self.file_name, self.arg2.unwrap())
+    }
+
+    fn pop_pointer(&self) -> String {
+        let segment = match self.arg2.unwrap() {
+            0 => "THIS",
+            1 => "THAT",
+            _ => panic!("Invalid pointer")
+        };
+        format!("@SP
+AM=M-1
+D=M
+@{segment}
+M=D")
+    }
+
     fn pop_offset(&self) -> String {
         format!("@{0}
 D=A
@@ -290,22 +340,40 @@ pub fn clean_whitespace(line: &str) -> Option<&str> {
     None
 }
 
+fn isolate_filename(filepath: &str) -> String {
+    let mut array = filepath.split("/").peekable();
+    let mut filepath = Vec::new();
+    while array.peek() != None {
+        let tmp = array.next().unwrap();
+        if array.peek() == None {
+            let mut filename = tmp.splitn(2, ".");
+            filepath.push(format!("{}{}", filename.next().unwrap(), ".hack"));
+        } else {
+            filepath.push(tmp.to_string());
+        }
+    }
+    let res = filepath.join("/");
+    return res.to_string();
+}
 
 fn main() {
-    let mut file = "./resources/BasicTest.vm";
     let args: Vec<String> = env::args().collect();
+    let mut file = "/resources/Test.vm";
     if args.len() > 1 {
         file = &args[1];
     }
-    let file = open_line_breaks(file);
-    let lines = file.split("\n");
+    let contents = open_line_breaks(file);
+    let filename = isolate_filename(&file);
+    let lines = contents.split("\n");
     let mut res = Vec::new();
     let mut line_num = 0;
     for line in lines {
         let tmp = clean_whitespace(line);
+        println!("{:?}", tmp);
         if tmp.is_some() {
             line_num += 1;
-            res.push(LineParsing::new(split_line(line), line_num).parse());
+            res.push(LineParsing::new(split_line(line), line_num, filename.clone())
+                     .parse());
         }
     }
     let output = res.join("\n");
