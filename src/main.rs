@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::fs;
+use std::{env, fs};
 use std::io::{Result, Write};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -15,15 +15,23 @@ struct LineParsing {
     ctype: CommandType,
     arg1: String, // This is either the arithmetic type, or the location
     arg2: Option<i32>, // This will be the target of offsets or the num
+    line_num: i32,
 }
 
 impl LineParsing {
-    fn new(line: Vec<&str>) -> Self {
+    fn new(line: Vec<&str>, line_num: i32) -> Self {
         let mapping = HashMap::from([
             ("push", CommandType::Push),
-            ("pop", CommandType::Pop),
-            ("add", CommandType::Arithmetic),
-            ("sub", CommandType::Arithmetic),
+            ("pop",  CommandType::Pop),
+            ("add",  CommandType::Arithmetic),
+            ("sub",  CommandType::Arithmetic),
+            ("eq",   CommandType::Arithmetic),
+            ("lt",   CommandType::Arithmetic),
+            ("gt",   CommandType::Arithmetic),
+            ("neg",  CommandType::Arithmetic),
+            ("and",  CommandType::Arithmetic),
+            ("or",   CommandType::Arithmetic),
+            ("not",  CommandType::Arithmetic),
         ]);
 
         let location = HashMap::from([
@@ -35,7 +43,7 @@ impl LineParsing {
             ("R13", "R13"),
             ("R14", "R14"),
             ("R15", "R15"),
-            ("constant", "STATIC"),
+            ("constant", "CONST"),
             ("temp", "TEMP"),
         ]);
 
@@ -43,13 +51,11 @@ impl LineParsing {
         let mut arg1 = line[0].to_string();
         let mut arg2: Option<i32> = None;
         if line.len() >= 3 {
-            println!("Original: {}", line[1]);
-            println!("New: {}", location[line[1]]);
             arg1 = location[line[1]].to_string();
             arg2 = Some(line[2].parse()
                         .expect("Unable to parse num {line[2]}\n"));
         }
-        LineParsing{ ctype, arg1, arg2 }
+        LineParsing{ ctype, arg1, arg2, line_num }
     }
 
     fn parse(&self) -> String {
@@ -64,13 +70,20 @@ impl LineParsing {
         match self.arg1.as_str() {
             "add" => self.add(),
             "sub" => self.sub(),
-            _ => "".to_string(),
+            "eq"  => self.eq(),
+            "lt"  => self.lt(),
+            "gt"  => self.gt(),
+            "neg" => self.neg(),
+            "and" => self.and(),
+            "or"  => self.or(),
+            "not" => self.not(),
+            _     => "".to_string(),
         }
     }
 
     fn push(&self) -> String {
         match &self.arg1[..] {
-            "STATIC" => self.push_constant(),
+            "CONST" => self.push_constant(),
             "LCL" | "ARG" | "THIS" | "THAT" => self.push_offset(),
             "TEMP" => self.push_temp(),
             _ => panic!("Called a push command that is not implemented"),
@@ -79,17 +92,16 @@ impl LineParsing {
 
     fn pop(&self) -> String {
         match &self.arg1[..] {
-            "STATIC" => panic!("Can't pop static items"),
+            "CONST" => panic!("Can't pop static items"),
             "LCL" | "ARG" | "THIS" | "THAT" => self.pop_offset(),
             "TEMP" => self.pop_temp(),
             _ => panic!("Called a pop command that is not implemented"),
         }
     }
-
+    // Tested
     fn add(&self) -> String {
         "@SP
-M=M-1
-A=M
+AM=M-1
 D=M
 A=A-1
 M=D+M".to_string()
@@ -97,16 +109,151 @@ M=D+M".to_string()
 
     fn sub(&self) -> String {
         "@SP
-M=M-1
-A=M
+AM=M-1
 D=M
 A=A-1
 M=M-D".to_string()
     }
 
+    fn eq(&self) -> String {
+        format!("@SP
+M=M-1
+A=M
+D=M
+A=A-1
+D=D-M
+@true{0}
+D;JEQ
+@SP
+A=M
+M=0
+@end{0}
+D;JMP
+(true{0})
+@0
+A=M
+M=1
+(end{0})
+", self.line_num)
+    }
+
+    fn lt(&self) -> String {
+        format!("@SP
+M=M-1
+A=M
+D=M
+A=A-1
+D=D-M
+@true{0}
+D;JLT
+@SP
+A=M
+M=0
+@end{0}
+D;JMP
+(true{0})
+@0
+A=M
+M=1
+(end{0})
+", self.line_num)
+    }
+
+    fn gt(&self) -> String {
+format!("@SP
+M=M-1
+A=M
+D=M
+A=A-1
+D=D-M
+@true{0}
+D;JGT
+@SP
+A=M
+M=0
+@end{0}
+D;JMP
+(true{0})
+@0
+A=M
+M=1
+(end{0})
+", self.line_num)
+    }
+
+    fn neg(&self) -> String {
+"@SP
+D=A
+A=M-1
+M=M-D".to_string()
+    }
+
+    fn and(&self) -> String {
+        format!("@SP
+M=M-1
+A=M+1
+D=M-1
+@false{0}
+D;JNE
+@SP
+A=M
+D=M-1
+@false{0}
+D;JNE
+@SP
+A=M-1
+D=1
+@end
+D;JMP
+(false{0})
+@SP
+A=M-1
+M=0
+(end{0})", self.line_num)
+    }
+
+    fn or(&self) -> String {
+        format!("@SP
+M=M-1
+A=M
+D=M-1
+@true{0}
+D;JEQ
+@SP
+A=M-1
+D=M-1
+@true{0}
+D;JEQ
+@SP
+A=M-1
+D=M
+@end{0}
+D;JMP
+(true{0})
+@SP
+A=M-1
+M=1
+(end{0})", self.line_num)
+    }
+
+    fn not(&self) -> String {
+        format!("@SP
+A=M-1
+D=M
+@true{0}
+D;JEQ
+M=0
+@end{0}
+D;JMP
+(true{0})
+@SP
+A=M-1
+M=1
+(end{0})", self.line_num)
+    }
+
     fn push_constant(&self) -> String {
-        println!("{:?}", self);
-       format!("@{:?}
+       format!("@{0}
 D=A
 @SP
 A=M
@@ -119,51 +266,49 @@ M=M+1", self.arg2.unwrap())
         format!("@{0}
 D=A
 @{1}
-A=D+M
-D=M
+D=D+M
+@R13
+M=D
 @SP
-M=M-1
+AM=M-1
+D=M
+@R13
 A=M
 M=D", self.arg2.unwrap(), self.arg1)
     }
 
     fn pop_temp(&self) -> String {
-        format!("@{0}
-D=A
-@{1}
-A=D+M
+        format!("@SP
+AM=M-1
 D=M
-@SP
-M=M-1
-A=M
-M=D", self.arg2.unwrap() + 5, self.arg1)
+@R{0}
+M=D", self.arg2.unwrap() + 5)
     }
 
     fn push_offset(&self) -> String {
         format!("@{0}
 D=A
 @{1}
-A=D+M
+A=M
+A=D+A
 D=M
 @SP
-M=M+1
 A=M
-M=D", self.arg2.unwrap(), self.arg1)
+M=D
+@SP
+M=M+1", self.arg2.unwrap(), self.arg1)
     }
 
     fn push_temp(&self) -> String {
-        format!("@{}
-D=A
-@{1}
-A=D+M
+        format!("@R{0}
 D=M
 @SP
-M=M+1
 A=M
-M=D", self.arg2.unwrap() + 5, self.arg1)
+M=D
+@SP
+M=M+1", self.arg2.unwrap() + 5)
     }
 
-// TODO TMP parsing
 
 }
 
@@ -196,18 +341,25 @@ pub fn clean_whitespace(line: &str) -> Option<&str> {
 
 
 fn main() {
-    let file = open_line_breaks("./resources/BasicTest.vm");
+    let mut file = "./resources/BasicTest.vm";
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 1 {
+        file = &args[1];
+    }
+    let file = open_line_breaks(file);
     let lines = file.split("\n");
     let mut res = Vec::new();
+    let mut line_num = 0;
     for line in lines {
         let tmp = clean_whitespace(line);
         if tmp.is_some() {
-            res.push(LineParsing::new(split_line(line)).parse());
+            line_num += 1;
+            res.push(LineParsing::new(split_line(line), line_num).parse());
         }
     }
     let output = res.join("\n");
     println!("{:?}", output);
-    write_file("./resources/BasicTest.asm", &output)?;
+    let _ = write_file("./resources/BasicTest.asm", &output);
 }
 
 
