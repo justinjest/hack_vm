@@ -89,6 +89,7 @@ impl LineParsing {
             "LCL" | "ARG" | "THIS" | "THAT" => self.push_offset(),
             "TEMP" => self.push_temp(),
             "PTR" => self.push_pointer(),
+            "STATIC" => self.push_static(),
             _ => panic!("Called a push command that is not implemented"),
         }
     }
@@ -99,6 +100,7 @@ impl LineParsing {
             "LCL" | "ARG" | "THIS" | "THAT" => self.pop_offset(),
             "TEMP" => self.pop_temp(),
             "PTR" => self.pop_pointer(),
+            "STATIC" => self.pop_static(),
             _ => panic!("Called a pop command that is not implemented"),
         }
     }
@@ -347,9 +349,7 @@ fn isolate_filename(filepath: &str) -> String {
         let tmp = array.next().unwrap();
         if array.peek() == None {
             let mut filename = tmp.splitn(2, ".");
-            filepath.push(format!("{}{}", filename.next().unwrap(), ".hack"));
-        } else {
-            filepath.push(tmp.to_string());
+            filepath.push(format!("{}", filename.next().unwrap()));
         }
     }
     let res = filepath.join("/");
