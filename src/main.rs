@@ -95,20 +95,20 @@ impl LineParsing {
     }
 
     fn label(&self) -> String{
-        format!("({0})", self.arg1)
+        format!("({0})", self.loc.clone().unwrap())
     }
 
     fn goto(&self) -> String{
         format!("@{0}
-0;JMP", self.arg1)
+0;JMP", self.loc.clone().unwrap())
     }
 
     fn if_goto(&self) -> String{
         format!("@SP
-A=M-1
+AM=M-1
 D=M
 @{0}
-D;JEQ", self.arg1)
+D;JNE", self.loc.clone().unwrap())
     }
 
     fn arithmitic(&self) -> String {
