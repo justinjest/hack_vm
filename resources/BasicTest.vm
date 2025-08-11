@@ -5,9 +5,9 @@
 
 // Executes pop and push commands.
 
-push constant 10
-pop local 0
-push constant 21
+   push constant 10
+   pop local 0
+   push constant 21
 push constant 22
 pop argument 2
 pop argument 1

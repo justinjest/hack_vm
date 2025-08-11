@@ -16,6 +16,7 @@ enum CommandType {
 struct LineParsing {
     ctype: CommandType,
     arg1: String, // This is either the arithmetic type, or the location
+    loc: Option<String>,
     arg2: Option<i32>, // This will be the target of offsets or the num
     line_num: i32,
     file_name: String,
@@ -24,10 +25,8 @@ struct LineParsing {
 impl LineParsing {
     fn new(line: Vec<&str>, line_num: i32, file_name: String) -> Self {
         let mapping = HashMap::from([
-            // Push and pop both have 3 items in their parse
             ("push", CommandType::Push),
             ("pop",  CommandType::Pop),
-            // Arithmetic has 1 item in their parse
             ("add",  CommandType::Arithmetic),
             ("sub",  CommandType::Arithmetic),
             ("eq",   CommandType::Arithmetic),
@@ -37,11 +36,9 @@ impl LineParsing {
             ("and",  CommandType::Arithmetic),
             ("or",   CommandType::Arithmetic),
             ("not",  CommandType::Arithmetic),
-            // Branching has 2 items in their parse
             ("label", CommandType::Branching),
             ("if-goto", CommandType::Branching),
             ("goto", CommandType::Branching),
-            // Function has 3 items in function and call, and one in return
             ("function", CommandType::Function),
             ("call", CommandType::Function),
             ("return", CommandType::Function),
@@ -60,18 +57,23 @@ impl LineParsing {
             ("temp", "TEMP"),
             ("pointer", "PTR"),
         ]);
-
-        let ctype = mapping[line[0]];
-        let mut arg1 = line[0].to_string();
+        let ctype = mapping[line[0].trim()];
+        let mut arg1 = line[0].to_string(); // Initalize to the line to ensure we never have a failure
         let mut arg2: Option<i32> = None;
-        if line.len() >= 2 {
-            arg1 = location[line[1]].to_string();
+        let mut loc: Option<String> = None;
+        if  ctype == CommandType::Push || ctype == CommandType::Pop{
+            loc = Some(location[line[1]].to_string()); // If len greater than 2 ctype will capture the first part of the argument, this will capture the label etc.
         }
-        if line.len() == 3 {
+        if ctype == CommandType::Branching {
+            arg1 = line[0].to_string();
+            loc = Some(line[1].to_string());
+        }
+        if line.len() >= 3 {
             arg2 = Some(line[2].parse()
                         .expect("Unable to parse num {line[2]}\n"));
         }
-        LineParsing{ ctype, arg1, arg2, line_num, file_name }
+        println!("{:?}, {:?}, {:?}, {:?}", ctype, arg1, arg2, line.len());
+        LineParsing{ ctype, arg1, loc, arg2, line_num, file_name }
     }
 
     fn parse(&self) -> String {
@@ -94,15 +96,20 @@ impl LineParsing {
     }
 
     fn label(&self) -> String{
-        "".to_string()
+        format!("({0})", self.arg1)
     }
 
     fn goto(&self) -> String{
-        "".to_string()
+        format!("@{0}
+0;JMP", self.arg1)
     }
 
     fn if_goto(&self) -> String{
-        "".to_string()
+        format!("@SP
+A=M-1
+D=M
+@{0}
+D;JEQ", self.arg1)
     }
 
     fn arithmitic(&self) -> String {
@@ -225,7 +232,10 @@ M=!M".to_string()
     }
 
     fn push(&self) -> String {
-        match &self.arg1[..] {
+        if self.loc == None {
+            panic!("Unable to parse due to lack of location")
+        }
+        match &self.loc.as_ref().unwrap()[..] {
             "CONST" => self.push_constant(),
             "LCL" | "ARG" | "THIS" | "THAT" => self.push_offset(),
             "TEMP" => self.push_temp(),
@@ -236,7 +246,10 @@ M=!M".to_string()
     }
 
     fn pop(&self) -> String {
-        match &self.arg1[..] {
+        if self.loc == None {
+            panic!("Unable to parse due to lack of location")
+        }
+        match &self.loc.as_ref().unwrap()[..] {
             "CONST" => panic!("Can't pop static items"),
             "LCL" | "ARG" | "THIS" | "THAT" => self.pop_offset(),
             "TEMP" => self.pop_temp(),
@@ -314,7 +327,7 @@ AM=M-1
 D=M
 @R13
 A=M
-M=D", self.arg2.unwrap(), self.arg1)
+M=D", self.arg2.unwrap(), self.loc.clone().unwrap())
     }
 
     fn pop_temp(&self) -> String {
@@ -336,7 +349,7 @@ D=M
 A=M
 M=D
 @SP
-M=M+1", self.arg2.unwrap(), self.arg1)
+M=M+1", self.arg2.unwrap(), self.loc.clone().unwrap())
     }
 
     fn push_temp(&self) -> String {
@@ -353,7 +366,8 @@ M=M+1", self.arg2.unwrap() + 5)
 }
 
 fn split_line(line: &str) -> Vec<&str> {
-    line.split(" ")
+    line.trim()
+        .split(" ")
         .collect()
 }
 
