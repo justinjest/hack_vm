@@ -68,11 +68,10 @@ impl LineParsing {
             arg1 = line[0].to_string();
             loc = Some(line[1].to_string());
         }
-        if line.len() >= 3 {
+        else if line.len() >= 3 {
             arg2 = Some(line[2].parse()
                         .expect("Unable to parse num {line[2]}\n"));
         }
-        println!("{:?}, {:?}, {:?}, {:?}", ctype, arg1, arg2, line.len());
         LineParsing{ ctype, arg1, loc, arg2, line_num, file_name }
     }
 
