@@ -69,9 +69,9 @@ impl LineParsing {
             arg1 = line[0].to_string();
             loc = Some(line[1].to_string());
         }
-        else if ctype == CommandType::Function {
-            arg1 = line[1].to_string();
-            arg2 = Some(line[2].parse()
+        else if ctype == CommandType::Function { // Function foo 2
+            arg1 = line[1].to_string(); // Function name
+            arg2 = Some(line[2].parse() // nArgs
                         .expect("Unable to parse num"));
         }
         else if line.len() >= 3 {
@@ -165,7 +165,16 @@ D=M
 M=D
 
 @{1}
-0;JMP", self.line_num, self.arg1, self.arg2)
+0;JMP
+({0}_return_address)", self.line_num, self.arg1, self.arg2)
+    }
+
+    fn init_call(&self) -> String {
+        "".to_string()
+    }
+
+    fn init_return(&self) -> String {
+        "".to_string()
     }
 
     fn label(&self) -> String{
@@ -434,7 +443,6 @@ M=D
 @SP
 M=M+1", self.arg2.unwrap() + 5)
     }
-
 
 }
 
