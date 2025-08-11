@@ -98,28 +98,6 @@ impl LineParsing {
             _     => "".to_string(),
         }
     }
-
-    fn push(&self) -> String {
-        match &self.arg1[..] {
-            "CONST" => self.push_constant(),
-            "LCL" | "ARG" | "THIS" | "THAT" => self.push_offset(),
-            "TEMP" => self.push_temp(),
-            "PTR" => self.push_pointer(),
-            "STATIC" => self.push_static(),
-            _ => panic!("Called a push command that is not implemented"),
-        }
-    }
-
-    fn pop(&self) -> String {
-        match &self.arg1[..] {
-            "CONST" => panic!("Can't pop static items"),
-            "LCL" | "ARG" | "THIS" | "THAT" => self.pop_offset(),
-            "TEMP" => self.pop_temp(),
-            "PTR" => self.pop_pointer(),
-            "STATIC" => self.pop_static(),
-            _ => panic!("Called a pop command that is not implemented"),
-        }
-    }
     // Tested
     fn add(&self) -> String {
         "@SP
@@ -223,6 +201,28 @@ M=D|M".to_string()
         "@SP
 A=M-1
 M=!M".to_string()
+    }
+
+    fn push(&self) -> String {
+        match &self.arg1[..] {
+            "CONST" => self.push_constant(),
+            "LCL" | "ARG" | "THIS" | "THAT" => self.push_offset(),
+            "TEMP" => self.push_temp(),
+            "PTR" => self.push_pointer(),
+            "STATIC" => self.push_static(),
+            _ => panic!("Called a push command that is not implemented"),
+        }
+    }
+
+    fn pop(&self) -> String {
+        match &self.arg1[..] {
+            "CONST" => panic!("Can't pop static items"),
+            "LCL" | "ARG" | "THIS" | "THAT" => self.pop_offset(),
+            "TEMP" => self.pop_temp(),
+            "PTR" => self.pop_pointer(),
+            "STATIC" => self.pop_static(),
+            _ => panic!("Called a pop command that is not implemented"),
+        }
     }
 
     fn push_constant(&self) -> String {
