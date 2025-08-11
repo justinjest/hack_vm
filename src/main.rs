@@ -63,14 +63,20 @@ impl LineParsing {
         let mut loc: Option<String> = None;
         if  ctype == CommandType::Push || ctype == CommandType::Pop{
             loc = Some(location[line[1]].to_string()); // If len greater than 2 ctype will capture the first part of the argument, this will capture the label etc.
+            arg2 = Some(line[2].parse().expect("Unable to parse num"));
         }
-        if ctype == CommandType::Branching {
+        else if ctype == CommandType::Branching {
             arg1 = line[0].to_string();
             loc = Some(line[1].to_string());
         }
+        else if ctype == CommandType::Function {
+            arg1 = line[1].to_string();
+            arg2 = Some(line[2].parse()
+                        .expect("Unable to parse num"));
+        }
         else if line.len() >= 3 {
             arg2 = Some(line[2].parse()
-                        .expect("Unable to parse num {line[2]}\n"));
+                        .expect("Unable to parse num"));
         }
         LineParsing{ ctype, arg1, loc, arg2, line_num, file_name }
     }
@@ -81,7 +87,7 @@ impl LineParsing {
             CommandType::Push => self.push(),
             CommandType::Arithmetic => self.arithmitic(),
             CommandType::Branching => self.branching(),
-            CommandType::Function => "".to_string(),
+            CommandType::Function => self.function_parse(),
         }
     }
 
@@ -92,6 +98,74 @@ impl LineParsing {
             "if-goto" => self.if_goto(),
             _ => panic!("Unable to parse item due to error in branching command: {0}", self.arg1),
         }
+    }
+
+    fn function_parse(&self) -> String {
+        match self.arg1.as_str() {
+            "function" => self.init_function().to_string(),
+            "call" => "".to_string(),
+            "return" => "".to_string(),
+            _ => panic!("Unable to parse function call")
+        }
+    }
+
+    fn init_function(&self) -> String {
+        format!("({0}_return_address)
+@({0}_return_address)
+D=A
+@SP
+A=M
+M=D //Jump to address saved
+@SP
+M=M+1
+@LCL
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+
+@ARG
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+
+@THIS
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+
+@THAT
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1
+
+@5
+D=A
+@SP
+D=M-D
+@{2:?}
+D=D-A
+@ARG
+M=D
+
+@SP
+D=M
+@LCL
+M=D
+
+@{1}
+0;JMP", self.line_num, self.arg1, self.arg2)
     }
 
     fn label(&self) -> String{
