@@ -79,9 +79,30 @@ impl LineParsing {
             CommandType::Pop => self.pop(),
             CommandType::Push => self.push(),
             CommandType::Arithmetic => self.arithmitic(),
-            CommandType::Branching => "".to_string(),
+            CommandType::Branching => self.branching(),
             CommandType::Function => "".to_string(),
         }
+    }
+
+    fn branching(&self) -> String {
+        match self.arg1.as_str() {
+            "label" => self.label(),
+            "goto" => self.goto(),
+            "if-goto" => self.if_goto(),
+            _ => panic!("Unable to parse item due to error in branching command: {0}", self.arg1),
+        }
+    }
+
+    fn label(&self) -> String{
+        "".to_string()
+    }
+
+    fn goto(&self) -> String{
+        "".to_string()
+    }
+
+    fn if_goto(&self) -> String{
+        "".to_string()
     }
 
     fn arithmitic(&self) -> String {
