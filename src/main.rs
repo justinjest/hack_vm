@@ -5,6 +5,8 @@ use std::io::{Result, Write};
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum CommandType {
     Arithmetic,
+    Branching,
+    Function,
     Push,
     Pop,
 }
@@ -22,8 +24,10 @@ struct LineParsing {
 impl LineParsing {
     fn new(line: Vec<&str>, line_num: i32, file_name: String) -> Self {
         let mapping = HashMap::from([
+            // Push and pop both have 3 items in their parse
             ("push", CommandType::Push),
             ("pop",  CommandType::Pop),
+            // Arithmetic has 1 item in their parse
             ("add",  CommandType::Arithmetic),
             ("sub",  CommandType::Arithmetic),
             ("eq",   CommandType::Arithmetic),
@@ -33,6 +37,14 @@ impl LineParsing {
             ("and",  CommandType::Arithmetic),
             ("or",   CommandType::Arithmetic),
             ("not",  CommandType::Arithmetic),
+            // Branching has 2 items in their parse
+            ("label", CommandType::Branching),
+            ("if-goto", CommandType::Branching),
+            ("goto", CommandType::Branching),
+            // Function has 3 items in function and call, and one in return
+            ("function", CommandType::Function),
+            ("call", CommandType::Function),
+            ("return", CommandType::Function),
         ]);
 
         let location = HashMap::from([
@@ -52,8 +64,10 @@ impl LineParsing {
         let ctype = mapping[line[0]];
         let mut arg1 = line[0].to_string();
         let mut arg2: Option<i32> = None;
-        if line.len() >= 3 {
+        if line.len() >= 2 {
             arg1 = location[line[1]].to_string();
+        }
+        if line.len() == 3 {
             arg2 = Some(line[2].parse()
                         .expect("Unable to parse num {line[2]}\n"));
         }
@@ -65,6 +79,8 @@ impl LineParsing {
             CommandType::Pop => self.pop(),
             CommandType::Push => self.push(),
             CommandType::Arithmetic => self.arithmitic(),
+            CommandType::Branching => "".to_string(),
+            CommandType::Function => "".to_string(),
         }
     }
 
@@ -358,7 +374,7 @@ fn isolate_filename(filepath: &str) -> String {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let mut file = "/resources/Test.vm";
+    let mut file = "resources/Test.vm";
     if args.len() > 1 {
         file = &args[1];
     }
@@ -378,7 +394,7 @@ fn main() {
     }
     let output = res.join("\n");
     println!("{:?}", output);
-    let _ = write_file("./resources/BasicTest.asm", &output);
+    let _ = write_file(&format!("./resources/{filename}.asm"), &output);
 }
 
 
