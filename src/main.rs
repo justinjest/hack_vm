@@ -102,29 +102,29 @@ impl LineParsing {
 
     fn function_parse(&self) -> String {
         match self.arg1.as_str() {
-            "function" => self.init_function().to_string(),
-            "call" => "".to_string(),
-            "return" => "".to_string(),
+            "function" => self.init_function(),
+            "call" => self.init_call(),
+            "return" => self.init_return(),
             _ => panic!("Unable to parse function call")
         }
     }
 
-    fn init_function(&self) -> String {
-        format!("({0}_return_address)
-@({0}_return_address)
+    fn init_call(&self) -> String {
+        format!("@{0}_return_address
 D=A
 @SP
 A=M
-M=D //Jump to address saved
+M=D
 @SP
-M=M+1
+M=M+1 // Save and push return label
+
 @LCL
 D=M
 @SP
 A=M
 M=D
 @SP
-M=M+1
+M=M+1 // Push local
 
 @ARG
 D=M
@@ -132,7 +132,7 @@ D=M
 A=M
 M=D
 @SP
-M=M+1
+M=M+1 // Push arg
 
 @THIS
 D=M
@@ -140,7 +140,7 @@ D=M
 A=M
 M=D
 @SP
-M=M+1
+M=M+1 // Push This
 
 @THAT
 D=M
@@ -148,7 +148,7 @@ D=M
 A=M
 M=D
 @SP
-M=M+1
+M=M+1 // Push that
 
 @5
 D=A
@@ -157,24 +157,83 @@ D=M-D
 @{2:?}
 D=D-A
 @ARG
-M=D
+M=D // ARG = SP-5-nArgs
 
 @SP
 D=M
 @LCL
-M=D
+M=D // LCL = SP
 
 @{1}
-0;JMP
+0;JMP // GOTO function name
 ({0}_return_address)", self.line_num, self.arg1, self.arg2)
     }
 
-    fn init_call(&self) -> String {
-        "".to_string()
+    fn init_function(&self) -> String {
+        let mut output = format!("({})\n", self.arg1);
+        for _ in 0..self.arg2.unwrap() {
+            output.push_str("@0
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1");
+        }
+        output
     }
 
     fn init_return(&self) -> String {
-        "".to_string()
+        format!("@LCL
+D=M
+@R13
+M=D // End frame == LCL
+
+@5
+A=D-A
+D=M
+@R14
+M=D // Return address == endframe - 5
+
+@SP
+AM=M-1
+D=M
+@ARG
+A=M
+M=D // Arg pop
+
+@ARG
+D=M+1
+@SP
+M=D // SP = ARG + 1
+
+@R13
+AM = M-1
+D=M
+@THAT
+M=D // Reset that
+
+@R13
+AM=M-1
+D=M
+@THIS
+M=D // Reset this
+
+@R13
+AM=M-1
+D=M
+@ARG
+M=D // Reset arg
+
+@R13
+AM=M-1
+D=M
+@LCL
+M=D // Reset lcl
+
+@R14
+A=M
+0;jmp")
     }
 
     fn label(&self) -> String{
