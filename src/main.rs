@@ -667,7 +667,7 @@ fn process_dir(dir: &str) {
         output = format!("{}\n{}", output, res.join("\n"));
         println!("{:?}", output);
     }
-    let _ = write_file(&format!("{}", file_to_asm(dir)), &output);
+    let _ = write_file(&format!("{}{}", dir, file_to_asm(dir)), &output);
 }
 
 fn process_file(file: &str) {
