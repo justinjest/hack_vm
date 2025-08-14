@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::{env, fs};
 use std::io::{Result, Write};
+use std::path::Path;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum CommandType {
@@ -70,9 +71,12 @@ impl LineParsing {
             loc = Some(line[1].to_string());
         }
         else if ctype == CommandType::Function { // Function foo 2
+            loc = Some(line[0].to_string()); // Type of command
+            if line.len() >= 3 {
             arg1 = line[1].to_string(); // Function name
             arg2 = Some(line[2].parse() // nArgs
                         .expect("Unable to parse num"));
+            }
         }
         else if line.len() >= 3 {
             arg2 = Some(line[2].parse()
@@ -101,7 +105,9 @@ impl LineParsing {
     }
 
     fn function_parse(&self) -> String {
-        match self.arg1.as_str() {
+        let loc = self.loc.clone().unwrap();
+        println!("func: {}", loc);
+        match loc.as_str() {
             "function" => self.init_function(),
             "call" => self.init_call(),
             "return" => self.init_return(),
@@ -166,7 +172,8 @@ M=D // LCL = SP
 
 @{1}
 0;JMP // GOTO function name
-({0}_return_address)", self.line_num, self.arg1, self.arg2)
+({0}_return_address)
+", self.line_num, self.arg1, self.arg2)
     }
 
     fn init_function(&self) -> String {
@@ -178,7 +185,8 @@ D=A
 A=M
 M=D
 @SP
-M=M+1");
+M=M+1
+");
         }
         output
     }
@@ -208,7 +216,7 @@ D=M+1
 M=D // SP = ARG + 1
 
 @R13
-AM = M-1
+AM=M-1
 D=M
 @THAT
 M=D // Reset that
@@ -233,7 +241,7 @@ M=D // Reset lcl
 
 @R14
 A=M
-0;jmp")
+0;JMP")
     }
 
     fn label(&self) -> String{
@@ -547,12 +555,39 @@ fn isolate_filename(filepath: &str) -> String {
     return res.to_string();
 }
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    let mut file = "resources/Test.vm";
-    if args.len() > 1 {
-        file = &args[1];
+fn file_to_asm(file: &str) -> String {
+    let path = file.split(".").next().unwrap();
+    let val = format!("{0}.asm", path);
+    println!("{}", val);
+    val
+}
+
+fn get_files_in_dir<P: AsRef<Path>>(path: P) -> std::io::Result<Vec<String>> {
+    let mut files = Vec::new();
+
+    for entry in fs::read_dir(path)? {
+        let entry = entry?;
+        let metadata = entry.metadata()?;
+
+        if metadata.is_file() {
+            let path = entry.path();
+            if let Some(path_str) = path.to_str() {
+                files.push(path_str.to_string());
+            }
+        }
     }
+
+    Ok(files)
+}
+
+fn process_dir(dir: &str) {
+    let files = get_files_in_dir(dir).unwrap();
+    for file in files {
+        println!("Found file: {}", file);
+    }
+}
+
+fn process_file(file: &str) {
     let contents = open_line_breaks(file);
     let filename = isolate_filename(&file);
     let lines = contents.split("\n");
@@ -568,7 +603,27 @@ fn main() {
     }
     let output = res.join("\n");
     println!("{:?}", output);
-    let _ = write_file(&format!("./resources/{filename}.asm"), &output);
+    let _ = write_file(&format!("{}", file_to_asm(file)), &output);
+}
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    let mut file = "resources/Test.vm";
+    if args.len() > 1 {
+        file = &args[1];
+    }
+    match fs::metadata(file) {
+        Ok(metadata) => {
+            if metadata.is_file() {
+                process_file(file);
+            } else if metadata.is_dir() {
+                process_dir(file);
+            }
+        }
+        Err(e) => {
+            println!("{}", format!("Error processing metadata: {}", e));
+        }
+    }
 }
 
 
