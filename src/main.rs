@@ -116,7 +116,7 @@ impl LineParsing {
     }
 
     fn init_call(&self) -> String {
-        format!("@{0}_return_address
+        format!("@return_address{0}
 D=A
 @SP
 A=M
@@ -172,8 +172,8 @@ M=D // LCL = SP
 
 @{1}
 0;JMP // GOTO function name
-({0}_return_address)
-", self.line_num, self.arg1, self.arg2)
+(return_address{0})
+", self.line_num, self.arg1, self.arg2.unwrap())
     }
 
     fn init_function(&self) -> String {
@@ -513,6 +513,70 @@ M=M+1", self.arg2.unwrap() + 5)
 
 }
 
+fn bootstrap() -> String {
+    format!("@256
+D=A
+@SP
+M=D // Set sp to 256
+
+@return_address
+D=A
+@SP
+A=M
+M=D
+@SP
+M=M+1 // Save and push return label
+
+@LCL
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1 // Push local
+
+@ARG
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1 // Push arg
+
+@THIS
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1 // Push This
+
+@THAT
+D=M
+@SP
+A=M
+M=D
+@SP
+M=M+1 // Push that
+
+@5
+D=A
+@SP
+D=M-D
+@ARG
+M=D // ARG = SP-5-nArgs
+
+@SP
+D=M
+@LCL
+M=D // LCL = SP
+
+@Sys.init
+0;JMP // GOTO function name
+(return_address)
+")
+}
+
 fn split_line(line: &str) -> Vec<&str> {
     line.trim()
         .split(" ")
@@ -571,8 +635,10 @@ fn get_files_in_dir<P: AsRef<Path>>(path: P) -> std::io::Result<Vec<String>> {
 
         if metadata.is_file() {
             let path = entry.path();
-            if let Some(path_str) = path.to_str() {
-                files.push(path_str.to_string());
+            if path.extension().and_then(|s| s.to_str()) == Some("vm") {
+                if let Some(path_str) = path.to_str() {
+                    files.push(path_str.to_string());
+            }
             }
         }
     }
@@ -582,12 +648,30 @@ fn get_files_in_dir<P: AsRef<Path>>(path: P) -> std::io::Result<Vec<String>> {
 
 fn process_dir(dir: &str) {
     let files = get_files_in_dir(dir).unwrap();
+    let mut output = bootstrap();
     for file in files {
         println!("Found file: {}", file);
+        let contents = open_line_breaks(&file);
+        let filename = isolate_filename(&file);
+        let lines = contents.split("\n");
+        let mut res = Vec::new();
+        let mut line_num = 0;
+        for line in lines {
+            let tmp = clean_whitespace(line);
+            if tmp.is_some() {
+                line_num += 1;
+                res.push(LineParsing::new(split_line(tmp.unwrap()), line_num, filename.clone())
+                        .parse());
+            }
+        }
+        output = format!("{}\n{}", output, res.join("\n"));
+        println!("{:?}", output);
     }
+    let _ = write_file(&format!("{}", file_to_asm(dir)), &output);
 }
 
 fn process_file(file: &str) {
+    let mut output = bootstrap();
     let contents = open_line_breaks(file);
     let filename = isolate_filename(&file);
     let lines = contents.split("\n");
@@ -601,7 +685,7 @@ fn process_file(file: &str) {
                      .parse());
         }
     }
-    let output = res.join("\n");
+    output = format!("{}\n{}", output, res.join("\n"));
     println!("{:?}", output);
     let _ = write_file(&format!("{}", file_to_asm(file)), &output);
 }
