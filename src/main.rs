@@ -525,12 +525,12 @@ pub fn write_file (filename: &str, contents: &str) -> Result<()> {
 
 pub fn clean_whitespace(line: &str) -> Option<&str> {
     // We can split the line at // and select the first section to remove comments
-    let vals = line.split("//").collect::<Vec<&str>>();
-    let tmp = vals[0].trim();
-    if !tmp.is_empty() {
-        return Some(tmp)
+    let vals = line.split("//").next()?.trim();
+    if vals.is_empty() {
+        None
+    } else {
+        Some(vals)
     }
-    None
 }
 
 fn isolate_filename(filepath: &str) -> String {
@@ -560,10 +560,9 @@ fn main() {
     let mut line_num = 0;
     for line in lines {
         let tmp = clean_whitespace(line);
-        println!("{:?}", tmp);
         if tmp.is_some() {
             line_num += 1;
-            res.push(LineParsing::new(split_line(line), line_num, filename.clone())
+            res.push(LineParsing::new(split_line(tmp.unwrap()), line_num, filename.clone())
                      .parse());
         }
     }
